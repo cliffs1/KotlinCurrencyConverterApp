@@ -12,6 +12,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.example.currencyconverterapp.ui.theme.CurrencyConverterAppTheme
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.net.URL
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -25,6 +29,20 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
+            }
+        }
+    }
+
+    private suspend fun getFxRate(from: String, to: String, amount: Double): Double {
+        return withContext(Dispatchers.IO) {
+            try {
+                val url = "https://my.transfergo.com/api/fx-rates?from=$from&to=$to&amount=$amount"
+                val response = URL(url).readText()
+                val json = JSONObject(response)
+                json.getDouble("rate")
+            } catch (e: Exception) {
+                e.printStackTrace()
+                1.0
             }
         }
     }
