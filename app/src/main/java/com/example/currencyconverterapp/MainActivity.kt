@@ -29,6 +29,8 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.URL
 import androidx.compose.runtime.Composable
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -77,14 +79,16 @@ fun SimpleTopBar(title: String) {
 
 @Composable
 fun MainScreen() {
+    var fromCurrency by remember { mutableStateOf("PLN") }
+    var toCurrency by remember { mutableStateOf("UAH") }
     var amount by remember { mutableStateOf("300.0") }
     var rate by remember { mutableStateOf(1.0) }
 
-    // Launch a coroutine to fetch rate when the amount changes
-    LaunchedEffect(amount) {
+    // Fetch rate whenever user changes currency or amount
+    LaunchedEffect(fromCurrency, toCurrency, amount) {
         val numericAmount = amount.toDoubleOrNull() ?: 0.0
         if (numericAmount > 0) {
-            rate = getFxRate("PLN", "UAH", numericAmount)
+            rate = getFxRate(fromCurrency, toCurrency, numericAmount)
         }
     }
 
@@ -104,11 +108,10 @@ fun MainScreen() {
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             SendingCardWithInput(
-                countryName = "Poland",
-                currencyCode = "PLN",
+                selectedCurrency = fromCurrency,
+                onCurrencySelected = { fromCurrency = it },
                 amountText = amount,
-                onAmountChange = { amount = it },
-                flagResId = R.drawable.flag_pl
+                onAmountChange = { amount = it }
             )
 
             Text(
@@ -117,10 +120,9 @@ fun MainScreen() {
             )
 
             SendingCard(
-                countryName = "Ukraine",
-                currencyCode = "UAH",
-                amountText = "%.2f".format(converted),
-                flagResId = R.drawable.flag_ua
+                selectedCurrency = toCurrency,
+                onCurrencySelected = { toCurrency = it },
+                amountText = "%.2f".format(converted)
             )
         }
     }
@@ -128,17 +130,20 @@ fun MainScreen() {
 
 @Composable
 fun SendingCardWithInput(
-    countryName: String,
-    currencyCode: String,
+    selectedCurrency: String,
+    onCurrencySelected: (String) -> Unit,
     amountText: String,
-    onAmountChange: (String) -> Unit,
-    flagResId: Int? = null,
-    modifier: Modifier = Modifier
+    onAmountChange: (String) -> Unit
 ) {
+    val currencyFlags = mapOf(
+        "PLN" to R.drawable.flag_pl,
+        "EUR" to R.drawable.flag_ge,
+        "GBP" to R.drawable.flag_gb,
+        "UAH" to R.drawable.flag_ua
+    )
+
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(IntrinsicSize.Min),
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
@@ -146,43 +151,16 @@ fun SendingCardWithInput(
         Row(
             modifier = Modifier
                 .padding(16.dp)
-                .fillMaxWidth()
-                .wrapContentHeight(),
+                .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                val flagModifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFFEFEFEF))
+            CurrencyDropdown(
+                selectedCurrency = selectedCurrency,
+                onCurrencySelected = onCurrencySelected,
+                flagResId = currencyFlags[selectedCurrency] ?: R.drawable.flag_pl
+            )
 
-                if (flagResId != null) {
-                    Image(
-                        painter = painterResource(id = flagResId),
-                        contentDescription = "$countryName flag",
-                        modifier = flagModifier,
-                        contentScale = ContentScale.Crop
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                Column {
-                    Text(
-                        text = countryName,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        text = currencyCode,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            // Editable input field for amount
             TextField(
                 value = amountText,
                 onValueChange = { onAmountChange(it) },
@@ -206,18 +184,19 @@ fun SendingCardWithInput(
 
 @Composable
 fun SendingCard(
-    countryName: String,
-    currencyCode: String,
-    amountText: String,
-    flagResId: Int? = null,  // Use this for local drawable
-    modifier: Modifier = Modifier,
-    onClick: (() -> Unit)? = null
+    selectedCurrency: String,
+    onCurrencySelected: (String) -> Unit,
+    amountText: String
 ) {
+    val currencyFlags = mapOf(
+        "PLN" to R.drawable.flag_pl,
+        "EUR" to R.drawable.flag_ge,
+        "GBP" to R.drawable.flag_gb,
+        "UAH" to R.drawable.flag_ua
+    )
+
     Card(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(IntrinsicSize.Min)
-            .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier),
+        modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
@@ -225,41 +204,15 @@ fun SendingCard(
         Row(
             modifier = Modifier
                 .padding(16.dp)
-                .fillMaxWidth()
-                .wrapContentHeight(),
+                .fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                val flagModifier = Modifier
-                    .size(48.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFFEFEFEF))
-
-                if (flagResId != null) {
-                    Image(
-                        painter = painterResource(id = flagResId),
-                        contentDescription = "$countryName flag",
-                        modifier = flagModifier,
-                        contentScale = ContentScale.Crop
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                Column {
-                    Text(
-                        text = countryName,
-                        style = MaterialTheme.typography.bodyMedium,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                    Text(
-                        text = currencyCode,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
+            CurrencyDropdown(
+                selectedCurrency = selectedCurrency,
+                onCurrencySelected = onCurrencySelected,
+                flagResId = currencyFlags[selectedCurrency] ?: R.drawable.flag_pl
+            )
 
             Text(
                 text = amountText,
@@ -267,6 +220,49 @@ fun SendingCard(
                 fontWeight = FontWeight.ExtraBold,
                 color = MaterialTheme.colorScheme.primary
             )
+        }
+    }
+}
+
+@Composable
+fun CurrencyDropdown(
+    selectedCurrency: String,
+    onCurrencySelected: (String) -> Unit,
+    flagResId: Int
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val currencies = listOf("PLN", "EUR", "GBP", "UAH")
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.clickable { expanded = true }
+    ) {
+        Image(
+            painter = painterResource(id = flagResId),
+            contentDescription = "$selectedCurrency flag",
+            modifier = Modifier
+                .size(40.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(Color(0xFFEFEFEF)),
+            contentScale = ContentScale.Crop
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(selectedCurrency, fontWeight = FontWeight.Bold)
+        Icon(Icons.Default.ArrowDropDown, contentDescription = "Select currency")
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            currencies.forEach { currency ->
+                DropdownMenuItem(
+                    text = { Text(currency) },
+                    onClick = {
+                        onCurrencySelected(currency)
+                        expanded = false
+                    }
+                )
+            }
         }
     }
 }
