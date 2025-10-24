@@ -77,15 +77,24 @@ fun SimpleTopBar(title: String) {
 
 @Composable
 fun MainScreen() {
-    // UI state
-    var amount by remember { mutableStateOf(300.0) }
-    var rate by remember { mutableStateOf(11.50899) }
-    var converted by remember { mutableStateOf(amount * rate) }
+    var amount by remember { mutableStateOf("300.0") }
+    var rate by remember { mutableStateOf(1.0) }
+
+    // Launch a coroutine to fetch rate when the amount changes
+    LaunchedEffect(amount) {
+        val numericAmount = amount.toDoubleOrNull() ?: 0.0
+        if (numericAmount > 0) {
+            rate = getFxRate("PLN", "UAH", numericAmount)
+        }
+    }
+
+    val converted = remember(amount, rate) {
+        val numericAmount = amount.toDoubleOrNull() ?: 0.0
+        numericAmount * rate
+    }
 
     Scaffold(
-        topBar = {
-            SimpleTopBar(title = "Currency Converter")
-        }
+        topBar = { SimpleTopBar(title = "Currency Converter") }
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -94,26 +103,102 @@ fun MainScreen() {
                 .fillMaxSize(),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // From card
-            SendingCard(
+            SendingCardWithInput(
                 countryName = "Poland",
                 currencyCode = "PLN",
-                amountText = "%.2f".format(amount),
+                amountText = amount,
+                onAmountChange = { amount = it },
                 flagResId = R.drawable.flag_pl
             )
 
-            // Conversion rate info
             Text(
                 text = "Conversion rate: %.4f".format(rate),
                 style = MaterialTheme.typography.bodyLarge
             )
 
-            // To card
             SendingCard(
                 countryName = "Ukraine",
                 currencyCode = "UAH",
                 amountText = "%.2f".format(converted),
                 flagResId = R.drawable.flag_ua
+            )
+        }
+    }
+}
+
+@Composable
+fun SendingCardWithInput(
+    countryName: String,
+    currencyCode: String,
+    amountText: String,
+    onAmountChange: (String) -> Unit,
+    flagResId: Int? = null,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth()
+                .wrapContentHeight(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                val flagModifier = Modifier
+                    .size(48.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xFFEFEFEF))
+
+                if (flagResId != null) {
+                    Image(
+                        painter = painterResource(id = flagResId),
+                        contentDescription = "$countryName flag",
+                        modifier = flagModifier,
+                        contentScale = ContentScale.Crop
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column {
+                    Text(
+                        text = countryName,
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = currencyCode,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            // Editable input field for amount
+            TextField(
+                value = amountText,
+                onValueChange = { onAmountChange(it) },
+                singleLine = true,
+                modifier = Modifier.width(120.dp),
+                textStyle = LocalTextStyle.current.copy(
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold
+                ),
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                    cursorColor = MaterialTheme.colorScheme.primary
+                )
             )
         }
     }
