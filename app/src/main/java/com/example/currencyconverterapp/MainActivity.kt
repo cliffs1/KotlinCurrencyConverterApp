@@ -47,7 +47,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-private suspend fun getFxRate(from: String, to: String, amount: Double): Double {
+public suspend fun getFxRate(from: String, to: String, amount: Double): Double {
     return withContext(Dispatchers.IO) {
         try {
             val url = "https://my.transfergo.com/api/fx-rates?from=$from&to=$to&amount=$amount"
